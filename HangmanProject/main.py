@@ -1,9 +1,20 @@
 import random
 import string
-# THINGS TO DO
-# - keep track of guess ratio using people's name
+import sqlite3
+
 
 def main():
+    # opens up database and creates a cursor
+    con = sqlite3.connect('hangmandb.db')
+    cur = con.cursor()
+    # creates score table is it doesn't exist yet
+    cur.execute('''CREATE TABLE IF NOT EXISTS stats(
+                        name text NOT NULL,
+                        games_won integer NOT NULL,
+                        games_lost integer NOT NULL,
+                        total_games integer NOT NULL
+                );''')
+
     # opens file and checks length
     file = open('hangmanwords.txt', 'rt')
     file_length = 0
@@ -36,6 +47,27 @@ def main():
     playing = True
     tries = 0
     print('_______Welcome to HANGMAN!_______')
+    # check is player is in database or not
+    name = ''
+    name = input('What is your name? ')
+    name = name.lower()
+    name_handled = False
+    for row in cur.execute('SELECT * FROM stats'):
+        if name in row:
+            stats_tup = cur.execute(f'''SELECT games_won, games_lost, total_games FROM stats
+                                    WHERE name = \'{name}\'''').fetchall()[0]
+            print(f'Found your name! Your stats will be saved to {name.upper()}')
+            print(f'''      {name.upper()}\'s CURRENT STATS:
+            Games Won: {stats_tup[0]}
+            Games Lost: {stats_tup[1]}
+            Total Games Played: {stats_tup[2]}
+            Win Percentage: %{stats_tup[0] / stats_tup[2] * 100}''')
+            name_handled = True
+            break
+    if name_handled is False:
+        print(f'No name found. Creating new user {name.upper()}')
+        cur.execute(f'INSERT INTO stats VALUES (\'{name}\', 0, 0, 0);')
+
     difficulties = {'1': 20, '2': 15, '3': 10, '4': 5}
     difficulty = input('''
         1 - EASY (20 tries)
@@ -74,7 +106,7 @@ def main():
                     not_valid_guess = True
                     while not_valid_guess:
                         guess = input('Guess a letter: ')
-                        if guess.isalpha():
+                        if guess.isalpha() and len(guess) == 1:
                             if letters_used[letters.index(guess)] is False:
                                 not_valid_guess = False
                             else:
@@ -113,13 +145,38 @@ def main():
                 letters_used[i] = True
 
         # check if all letters have been guess correctly or if no tries are left
+        score = ''
         if all(word_bools):
             print('YOU WIN!!')
             playing = False
+            cur.execute(f'''UPDATE stats
+                            SET games_won = games_won + 1,
+                                total_games = total_games + 1
+                            WHERE name = \'{name}\';''')
+            stats_tup = cur.execute(f'''SELECT games_won, games_lost, total_games FROM stats
+                                                WHERE name = \'{name}\'''').fetchall()[0]
+            print(f'''      {name.upper()}\'s NEW STATS:
+                        Games Won: {stats_tup[0]}
+                        Games Lost: {stats_tup[1]}
+                        Total Games Played: {stats_tup[2]}
+                        Win Percentage: %{stats_tup[0] / stats_tup[2] * 100}''')
         elif tries >= difficulties[difficulty]:
             print('You\'ve run out of tries. YOU LOSE.')
             print(f'The word was: {word_chars}\n')
             playing = False
+            cur.execute(f'''UPDATE stats
+                            SET games_lost = games_lost + 1,
+                                total_games = total_games + 1
+                            WHERE name = \'{name}\';''')
+            stats_tup = cur.execute(f'''SELECT games_won, games_lost, total_games FROM stats
+                                                WHERE name = \'{name}\'''').fetchall()[0]
+            print(f'''      {name.upper()}\'s NEW STATS:
+                        Games Won: {stats_tup[0]}
+                        Games Lost: {stats_tup[1]}
+                        Total Games Played: {stats_tup[2]}
+                        Win Percentage: %{stats_tup[0] / stats_tup[2] * 100}''')
+    con.commit()
+    con.close()
 
 
 if __name__ == '__main__':
