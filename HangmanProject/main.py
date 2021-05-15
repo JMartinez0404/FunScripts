@@ -2,7 +2,6 @@ import random
 import string
 import sqlite3
 
-
 def main():
     # opens up database and creates a cursor
     con = sqlite3.connect('hangmandb.db')
@@ -68,14 +67,21 @@ def main():
         print(f'No name found. Creating new user {name.upper()}')
         cur.execute(f'INSERT INTO stats VALUES (\'{name}\', 0, 0, 0);')
 
+    diff_choose = False
     difficulties = {'1': 20, '2': 15, '3': 10, '4': 5}
-    difficulty = input('''
+    print('''
         1 - EASY (20 tries)
         2 - NORMAL (15 tries)
         3 - HARD (10 tries)
         4 - MASTER (5 tries)
-        Select a difficulty: 
-        ''')
+    ''')
+    # makes sure that the user enters a number
+    while diff_choose is False:
+        difficulty = input('Select a difficulty: ')
+        if difficulty not in difficulties.keys():
+            print('You did not select an option.')
+        else:
+            diff_choose = True
     while playing:
         tries += 1
         print(f'Number of tries: {tries}/{difficulties[difficulty]}')
@@ -106,6 +112,7 @@ def main():
                     not_valid_guess = True
                     while not_valid_guess:
                         guess = input('Guess a letter: ')
+                        guess = guess.lower()
                         if guess.isalpha() and len(guess) == 1:
                             if letters_used[letters.index(guess)] is False:
                                 not_valid_guess = False
@@ -148,6 +155,7 @@ def main():
         score = ''
         if all(word_bools):
             print('YOU WIN!!')
+            print(f'The word was: {word_chars}\n')
             playing = False
             cur.execute(f'''UPDATE stats
                             SET games_won = games_won + 1,
